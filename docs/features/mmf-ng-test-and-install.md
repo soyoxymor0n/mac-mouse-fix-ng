@@ -10,7 +10,11 @@ Option B, on the command line (keeps the build outside the repo):
 
     xcodebuild -project "Mouse Fix.xcodeproj" -scheme App -configuration Debug \
       -derivedDataPath <a folder outside the repo> -allowProvisioningUpdates \
-      DEVELOPMENT_TEAM=<your team id> CODE_SIGN_STYLE=Automatic build
+      DEVELOPMENT_TEAM=<your team id> CODE_SIGN_STYLE=Automatic \
+      CODE_SIGN_ENTITLEMENTS="$PWD/tools/build/local.entitlements" \
+      'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) FORCE_LICENSED' build
+
+`local.entitlements` leaves out the keychain entitlement, so no provisioning profile is embedded. A personal team's profile lasts 7 days, and after that macOS refuses to launch the app ("The application can't be opened"). Option A still embeds such a profile, so use it for short test runs only.
 
 The app is then at `<folder>/Build/Products/Debug/Mac Mouse Fix NG.app`. The helper sits inside it at `Contents/Library/LoginItems/Mac Mouse Fix NG Helper.app`.
 

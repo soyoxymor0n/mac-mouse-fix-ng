@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  Entitlements for local builds of the app and the helper, passed with CODE_SIGN_ENTITLEMENTS.
+
+  There is no keychain-access-groups entry on purpose. That entitlement requires a provisioning
+  profile, and a personal (free) team only gets profiles valid for 7 days. Once the profile has
+  expired macOS refuses to launch the app. Without the entitlement no profile is needed, so the
+  build runs for as long as the signing certificate is valid.
+  See .claude/skills/build-and-install/SKILL.md.
+-->
+<dict>
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+</dict>
+</plist>
