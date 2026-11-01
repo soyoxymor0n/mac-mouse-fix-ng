@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <!--
-  Entitlements for local builds of the app and the helper, passed with CODE_SIGN_ENTITLEMENTS.
+  Entitlements for Debug builds of the app and the helper (CODE_SIGN_ENTITLEMENTS in the project).
 
   There is no keychain-access-groups entry on purpose. That entitlement requires a provisioning
   profile, and a personal (free) team only gets profiles valid for 7 days. Once the profile has

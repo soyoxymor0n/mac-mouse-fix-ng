@@ -14,7 +14,7 @@ This is a local developer build. Nothing here publishes anything. Build outside 
 - The app and the helper use the bundle ID `com.soyoxymor0n.mac-mouse-fix` (`Shared/Constants.h`). Their settings live in `~/Library/Application Support/com.soyoxymor0n.mac-mouse-fix/`. A new install reuses those settings, so the mappings you have are kept.
 - The project's `DEVELOPMENT_TEAM` may not match the signing identity on this Mac. Get the team from the identity, as described below. Don't write the team into any file.
 - `CODE_SIGNING_ALLOWED=NO` gives a compile check only. The app can't be installed from that build.
-- Local builds must not contain a provisioning profile. The project's entitlements ask for `keychain-access-groups`, which needs a profile, and the personal team on this Mac only gets profiles valid for 7 days. When the profile expires, macOS kills the app at launch (`open` reports `Launchd job spawn failed`, POSIX error 163; running the binary directly exits 137). Step 3 therefore signs with `tools/build/local.entitlements`, which leaves that entitlement out. The build then runs as long as the signing certificate is valid. `FORCE_LICENSED` makes the keychain unnecessary: the keychain calls fail with an error that the license and trial code tolerates.
+- Local builds must not contain a provisioning profile. The project's entitlements ask for `keychain-access-groups`, which needs a profile, and the personal team on this Mac only gets profiles valid for 7 days. When the profile expires, macOS kills the app at launch (`open` reports `Launchd job spawn failed`, POSIX error 163; running the binary directly exits 137). The Debug configuration of the app and the helper therefore signs with `tools/build/local.entitlements`, which leaves that entitlement out, and sets `FORCE_LICENSED`. This also applies to Xcode's Run button. Release keeps the keychain entitlement, so on a personal team a Release build still gets a 7-day profile. The build then runs as long as the signing certificate is valid. `FORCE_LICENSED` makes the keychain unnecessary: the keychain calls fail with an error that the license and trial code tolerates.
 
 ## Prerequisites (owner)
 
@@ -35,13 +35,9 @@ This is a local developer build. Nothing here publishes anything. Build outside 
 
        xcodebuild -project "Mouse Fix.xcodeproj" -scheme App -configuration Debug \
          -derivedDataPath "<folder outside the repo>" -allowProvisioningUpdates \
-         DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic \
-         CODE_SIGN_ENTITLEMENTS="$PWD/tools/build/local.entitlements" \
-         'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) FORCE_LICENSED' build
+         DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic build
 
-   Always pass `FORCE_LICENSED`. The project doesn't set it, and without it the About tab shows the trial section ("free days") again. `$(inherited)` keeps the targets' own conditions (`DEBUG IS_MAIN_APP` for the app). Check with `-showBuildSettings` and the same arguments if in doubt.
-
-   Always pass `CODE_SIGN_ENTITLEMENTS` as shown. Without it the build carries a 7-day profile and stops launching when that expires.
+   Debug sets `FORCE_LICENSED` and the local entitlements itself, so don't pass them. Without `FORCE_LICENSED` the About tab shows the trial section ("free days") again.
 
    Manual signing with `CODE_SIGN_IDENTITY` fails on this project, because it also tries to sign the static frameworks (`signing with only SHA1 not allowed`). Use automatic signing with a signed-in Xcode account.
 
