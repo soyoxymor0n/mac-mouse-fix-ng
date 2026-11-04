@@ -13,8 +13,8 @@
 | Piece | Location | Role |
 |---|---|---|
 | This standard | `blueprint/docs/standards/app-walk-instruction.md` | the single source of truth; edit here |
-| The skill | `blueprint/.claude/skills/app-walk/SKILL.md` | thin wrapper; `disable-model-invocation: true`, so only the owner runs it (`/app-walk`) |
-| The probe | `template/tools/app-walk.mjs` (`npm run app:walk`) | measures what screenshots cannot show; sibling of `landing-walk.mjs` |
+| The skill | `blueprint/.claude/skills/app-walk/SKILL.md` | thin wrapper; started only by the owner (`/app-walk`) or by section D of `/goal-implement-all`. Claude Code has no per-caller gate for `disable-model-invocation`, so the rule is in the description |
+| The probe | `template/tools/app-walk.mjs` (`npm run app:walk`) | measures what screenshots cannot show; sibling of `landing-walk.mjs`. A route may declare the statuses it intends with `expectStatus: [404]` (an API call or the page itself); an undeclared failure still is one (rules: `app-walk-rules.mjs`, #108) |
 | Stamped copies | each repo's `.claude/skills/app-walk/` + `docs/standards/app-walk-instruction.md` | via `tools/add-claude-skills.mjs` |
 | Walk reports | `docs/walks/<YYYY-MM-DD>.md` in the app's repo | one per run; the next run diffs against the last |
 | Fleet list + drift check | `tools/app-walk.fleet.json`, `tools/app-walk-fleet.mjs` (`npm run app-walk:check` / `app-walk:apply`) | every repo holding a copy; byte-compares all three files against the blueprint |
