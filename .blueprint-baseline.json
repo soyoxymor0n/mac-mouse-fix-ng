@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "blueprintSha": "4a66777542b1701b00f0e1674904ef32c9c48ff6",
+  "blueprintSha": "3b738e2ef68bb2dd4e760d4b3064abcd41b4c710",
   "files": {
     "src/shared/core/eurlex/fetch.ts": "a9054fa72865f9e496711f69d0509b220d9b582411f841c982f129e45769a5f2",
     "src/shared/core/http/bodyLimits.ts": "d559c7e5b2512ec5d2d43cfb95722b6b064aa5a4b66398718b76339c395a953c",
