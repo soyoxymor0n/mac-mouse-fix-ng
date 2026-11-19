@@ -41,24 +41,28 @@ that issue and pull in what it touches; a word = label or milestone filter;
   sessions the remote is a local proxy URL; the path after `/git/` is still
   `owner/repo`. If it cannot be resolved, ask via AskUserQuestion - do not guess.
 - Fetch **open issues, not PRs**:
-  - Cloud (no `gh`): load the GitHub MCP tools with ToolSearch
+  - Cloud: `gh issue`/`gh pr` fail there (the GitHub proxy rejects GraphQL), so use
+    `node tools/gh-rest.mjs issue-list --state open --limit 200` (REST over `gh api`; JSON out).
+    Fallback if that fails: load the GitHub MCP tools with ToolSearch
     (`select:mcp__github__list_issues,mcp__github__issue_read,mcp__github__list_pull_requests,mcp__github__search_issues`),
     then `list_issues` (state OPEN) in pages of ~30 with `minimal_output` until a
     page comes back short.
-  - Local with `gh`: `gh issue list --state open --limit 200 --json number,title,labels,milestone,assignees,createdAt,updatedAt,comments`.
-  - If one route is unavailable use the other. If neither works, say what failed
+  - Local: `gh issue list --state open --limit 200 --json number,title,labels,milestone,assignees,createdAt,updatedAt,comments`
+    (or the same `gh-rest.mjs` call).
+  - If one route is unavailable use the next. If neither works, say what failed
     and stop; do not interview from memory.
 - Read full body and comments (`issue_read`) only for likely candidates. Delegate to
   a read-only Explore agent when there are more than ~25 issues.
 - **Claim tool.** Written once, in blueprint: `$CLAIM` = `tools/issue-claim.mjs` if this repo has it,
   else `../blueprint/tools/issue-claim.mjs` (the sibling checkout), else none (cloud sessions): then
-  use the GitHub MCP tools to read the same marker comments and the `claimed` label, and say so.
+  read the same marker comments and the `claimed` label with `node tools/gh-rest.mjs issue-view --number N`
+  (MCP GitHub tools as fallback), and say so.
 - **Claims first.** `node $CLAIM reap`, then `node $CLAIM status --json`.
   Reap ends claims whose owner is gone (landed, committed or abandoned, decided by git);
   status lists who holds what. An issue with a live, stale or interrupted claim is never
   a pick: show it in the overview as `claimed by <session>, since <time>`. A session
-  that cannot run the tool (cloud, no `gh`) reads the same markers from the issue
-  comments via the MCP tools, and treats a `claimed` label with no marker as held.
+  that cannot run the tool (cloud) reads the same markers from the issue
+  comments via `gh-rest.mjs issue-view` (MCP as fallback), and treats a `claimed` label with no marker as held.
 
 ## 2. Orient, then analyse (silently)
 
@@ -108,8 +112,8 @@ sessions message. It prints one JSON line per issue:
   name and ref) with the question or hand-off the owner wants, and offer the next-best issue
   only if the owner agrees. Never take a claim over.
 - `lost-race`: another session claimed it in the same moment. Treat it as `refused`.
-If the tool cannot run (cloud, no `gh`), write the same marker comment and `claimed` label
-via the MCP tools, and say so in the report.
+If the tool cannot run (cloud), write the same marker comment and `claimed` label with
+`gh-rest.mjs issue-comment` / `issue-edit --add-label claimed` (MCP as fallback), and say so in the report.
 
 ## 4. Decision rounds - everything needed BEFORE the build
 
@@ -118,7 +122,7 @@ docs or a sensible default: ambiguous acceptance criteria, API / schema / UX sha
 build vs reuse, scope cut, migration risk, anything the repo's `CLAUDE.md` reserves
 for the owner. Ask them now, so the build can run unattended.
 
-- AskUserQuestion only, never prose questions. The owner is often on a phone.
+- AskUserQuestion only, never prose questions. The owner is often on a phone. No one to ask (no `AskUserQuestion`, or a non-interactive routine): `owner-questions` > "No one to ask" (safe default, `owner-action` issue with a `decision` block, continue).
 - Each question self-contained: say what is decided and why it matters, name the
   issue number. Recommended option first, "(Recommended)". Max 4 questions per call,
   2-4 options each, headers max 12 characters. Repeat calls until done; stop as soon
@@ -130,7 +134,7 @@ for the owner. Ask them now, so the build can run unattended.
   question, one line of reason or long-term effect (the owner's free text wins), then
   `<!-- interview-decision {"key":"<id>","label":"...","at":"<ISO>"} -->`. Assumptions get
   the same comment, prefixed `**Assumed:**`. Remove `owner-action` from an issue whose
-  decision is now answered. No `gh` (cloud): use the GitHub MCP issue tools. A failed write
+  decision is now answered. In cloud use `node tools/gh-rest.mjs issue-comment` / `issue-edit` (MCP issue tools as fallback). A failed write
   is named in the report and never stops the build.
 - Close with ONE confirmation line stating the order and the "I will now implement
   and commit locally, not push" contract - as text, not another question - then start.
@@ -160,9 +164,10 @@ Work through the selected issues in the stated order. Before each one run
 5. **Mark the issue `built`** (the house lifecycle is `built` -> `on-beta` ->
    `released`, `docs/best-practices.json` -> `issue-discipline`; the push-time
    workflow `issue-status.yml` later swaps `built` for `on-beta`/`released`). Only
-   if the label already exists in the repo (`gh label list` / `get_label`) - never
+   if the label already exists in the repo (`gh label list` / `gh-rest.mjs label-list` / `get_label`) - never
    create it; if it is missing, skip and say so once in the report. Add it without
-   losing existing labels: `gh issue edit N --add-label built`, or via the MCP
+   losing existing labels: `gh issue edit N --add-label built` locally, or in cloud
+   `node tools/gh-rest.mjs issue-edit --number N --add-label built` (adds, never replaces), or via the MCP
    `issue_write` read the current labels first and send the union (its `labels`
    field REPLACES the set). A failed label write is noted in the report, never a
    reason to stop. Local-only commit, so say "built (local, unpushed)" in the report.

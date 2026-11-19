@@ -9,6 +9,8 @@ description: >-
   turn), "/goal-implement-all interview" is the interview alone. The standard
   docs/standards/goal-implement-all-instruction.md is read first.
 disable-model-invocation: true
+model: opus
+effort: medium
 ---
 
 # /goal-implement-all - build everything that can be built, then review it in the morning
@@ -27,6 +29,8 @@ It holds the rules, the reasons and the owner's interview record. This file is t
   Before creating it, check that every touched repo is reachable from the cloud with push access, and that the permit
   and the spend cap can be recorded there. If a check fails, stop and say which. Cloud is opt-in: routines often lack
   permissions that a local session has.
+  Cloud first step: `node tools/cloud-selftest.mjs`; if git push or GitHub REST fails, stop and file an `owner-action`
+  issue (see `owner-questions` > "No one to ask"). No one to ask (no `AskUserQuestion`, or a non-interactive routine): follow `owner-questions` > "No one to ask": safe default, `owner-action` issue with a `decision` block, continue.
 - `plan`: write the plan (section A) and the decision list. Change nothing else.
 - `morning`: review the last run (section G), by hand. A local run already starts it (section F).
 - `interview`: section G steps 3 to 7 only, with no summary turn first. Section F and G enqueue it themselves.
@@ -38,7 +42,7 @@ It holds the rules, the reasons and the owner's interview record. This file is t
 - Never promote or release. Never close an issue. Never create a label. Never open a PR. Never comment on an issue
   except the orchestrator's brief in a repo that needs a change.
 - External spend stays at or under $1 per night in total (`jev` calls, paid API calls, new paid services).
-- Customer data never goes to `jev`. Code may: the owner judged this run's code not sensitive, since anyone with a
+- Customer data stays out of the run's payload to `jev`. Code may: the owner judged this run's code not sensitive, since anyone with a
   subscription can build similar code. `jev` gets the issue, the acceptance-test names and the chunk's files. The key is
   `JEV_AI_GATEWAY_API_KEY`, from `.scaffold-secrets` or the Mac's `~/.claude/settings.local.json` env. Name the variable;
   never print its value.
@@ -54,8 +58,11 @@ It holds the rules, the reasons and the owner's interview record. This file is t
    is clean or holds only changes this run does not own; `npm run lint`, `npm run build` and `npm run test:affected`
    (or the repo's named equivalents, from CLAUDE.md) exist; `gh auth status` is fine.
 2. **Sources** (standard section 3): the feature doc rows marked 🔨 or 📋; `gh issue list --state open --label feature`
-   and `--label fix`; open items in `docs/decisions/*.md`. Skip `owner-action` and `todo` issues and list them in the
-   report.
+   and `--label fix`; open items in `docs/decisions/*.md`. Skip `owner-action` issues, and `todo` issues that no
+   feature-doc row or decision backs; list them in the report. **Dependencies first:** search blueprint and
+   regops-suite for open issues with `needed-by: <this repo>` in the body (`gh search issues --owner <owner>
+   "needed-by: <repo>" --state open`); they are the first phases, built in their own repo, blueprint before
+   regops-suite before this repo.
 3. **Plan.** Write `docs/plans/goal-<YYYY-MM-DD>.md`: at most six phases. Each phase lists its issues, its files, its
    repos, the model and effort for each chunk (section B), and its acceptance test. Commit the plan on its own with
    `[skip vercel]`. Nothing is pushed.
@@ -71,8 +78,9 @@ Stop after step 5 in `plan` mode and report the plan.
 0. **Design first, for UI/UX and landing content.** A chunk that changes a screen, a layout, an interaction or landing
    copy is defined by Opus 5.5 before any worker touches it: the screens, states, copy and acceptance tests, written
    into the plan. Workers implement that spec and do not design it. Opus reviews the built result against the spec.
-1. **Model and effort.** Ask `jev` which model and effort the chunk gets. `jev` is reached through the Vercel AI
-   Gateway. If it fails, times out or answers unclearly, use Haiku 5.5 at extra-high effort. Sonnet 5.5 only for a hard
+1. **Model and effort.** Ask `jev` which model and effort the chunk gets: `node tools/jev-chunk.mjs --issue "<text>"
+   --test "<name>" --file <path> [--hard]` (#242). It calls the gateway's decision API, not chat, and books each call
+   against the cap. If it fails, times out or answers unclearly, use Haiku 5.5 at extra-high effort. Sonnet 5.5 only for a hard
    chunk. The orchestrator is Opus 5.5 at medium effort (high when needed). `jev` gets only the payload in the hard
    limits. This command's model choice overrides the house delegation default (`~/.claude/docs/delegation.md`) for this
    command only.
@@ -81,9 +89,12 @@ Stop after step 5 in `plan` mode and report the plan.
 3. **Isolation.** Work in the main tree. Use a git worktree only for a cross-repo change or when a merge conflict forces
    it.
 4. **Cross-repo change.** If the chunk needs a change in another RegOps module repo, wake that repo's orchestrator
-   (agent communication) or start one, after filing a GitHub issue in that repo with the exact change. Its work is
+   (agent communication) or start one, after filing a GitHub issue in that repo with the exact change and a `needed-by: <this repo>#N` line in its body. Its work is
    committed on that repo's `beta` and never pushed here.
 5. **Check.** Read the diff yourself. Run the repo's lint, build and `test:affected`. A bug fix's repro must fail first.
+   A phase that touches a screen, a list or a data read also runs `npm run check:load` (and `check:bundle`) where the
+   repo has them. Over budget: take the next lever of `loading-instruction.md` section 3, re-measure, repeat; after
+   three rounds record the breakdown and the remaining gap as a `todo` issue and continue.
    Authz: a negative test per caller-supplied id.
 6. **Red?** Follow the red ladder (standard section 8): two retries with the failure output and the instruction to fix
    code or tests; one attempt by Opus 5.5 at high effort; then stop. A red phase drops its uncommitted work.
@@ -105,7 +116,8 @@ night, stop buying anything and finish with what you have.
 1. Mark each green phase with a tag `goal/<YYYY-MM-DD>/phase-<N>` on its last commit in each touched repo. Tags stay
    local.
 2. Start the `app-walk` skill with the Skill tool, under its standard. Its product questions become decisions-doc stand-ins. Gaps it can fix without a
-   product decision become one more phase, walked again.
+   product decision become one more phase, walked again. Its part G runs `npm run check:load`; an over-budget screen is
+   a fix gap and goes through the same tune loop as step B5.
 3. Run the full suite once in each touched repo: `npm test` or the repo's equivalent.
 4. In each touched repo, update `CLAUDE-HANDOFF.md` with what this run left: branch, commits, tags, open stand-ins,
    anything not pushed. The shared-tree rule requires it.
@@ -148,9 +160,14 @@ Typed by hand (the interview is already queued after a local run). Two turns, fo
 3. **Interview.** Each question carries enough background to be answered without scrolling up. One `AskUserQuestion` batch per group, at most four per call. Each question carries its background:
    what was built, the stand-in, what changes if the owner picks differently. Recommended option first. Options:
    keep the stand-in, change it, revert it, decide later. Do not ask about anything that has no decision behind it.
+   Then the **blocked work**: the issues not taken and open decisions not built, grouped by blocker (owner-only,
+   blueprint/suite component, gold set, live checks, "later"), one batch per group, asking what would unblock each
+   for the next run.
 4. **Status sync.** Feature doc statuses per the evidence. Labels per the house lifecycle (standard section 14). List
    the issues the workflow will close on the next push, and the `fix` issues the owner should close. Do not close them.
 5. **Fleet.** Ask whether to stamp blueprint changes into the fleet copies now. Stamp only what the owner confirms.
+   Then list stranded cloud branches: `node tools/fleet-merge-cloud.mjs` (read-only; `--open-prs` opens a PR to beta for
+   each CLEAN one; `--merge --yes` and `--delete-merged --yes` only when the owner says so).
 6. **Owner-action.** For items the owner confirms need their own action, file them with
    `node tools/feature-issues.mjs --decisions`.
 7. **Record.** Put the answers under a "Morning" heading in the decisions doc and commit it, with `[skip vercel]`.

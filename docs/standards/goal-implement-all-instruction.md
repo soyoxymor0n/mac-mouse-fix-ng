@@ -18,7 +18,7 @@ The owner types nothing else during the night.
 
 **Launch.** The command takes one optional parameter. `/goal-implement-all` (or `local`) runs in the current session,
 which must stay open. `/goal-implement-all cloud` creates a cloud routine instead. Cloud is opt-in, because routines
-often lack permissions that a local session has. The owner chose this on 2026-11-01.
+often lack permissions that a local session has. A cloud run's first step is `node tools/cloud-selftest.mjs`; if git push or GitHub REST fails it stops with an `owner-action` issue. Where `AskUserQuestion` is unavailable, every skill follows the `owner-questions` rule "No one to ask" (safe default, `owner-action` issue with a `decision` block, continue). The owner chose this on 2026-11-01.
 
 ## 2. The done-condition
 
@@ -27,7 +27,8 @@ The run works until this holds. It never stops early for a choice it can make it
 > Every feature, fix and decision-backed change from the sources in section 3 is implemented, tested and committed
 > on `beta`, except items that need something only the owner can do (promote or release, spend above the cap, an
 > account or secret the owner must create). Each stand-in is logged in the decisions document. The app-walk has run
-> and its fixes are committed. One push to `beta` per repo has been made at the end. Stop when this holds, or when a
+> and its fixes are committed, and every screen of an app that has `npm run check:load` is inside its load budget
+> (`loading-instruction.md`), or the remaining gap is a `todo` issue with its measured breakdown. One push to `beta` per repo has been made at the end. Stop when this holds, or when a
 > stop rule in section 13 ends the run.
 
 The done-condition is written out in full, so the run does not depend on whether the host has a native `/goal`
@@ -39,8 +40,12 @@ command.
   `docs/features/regsupply-features.md`.
 - Open GitHub issues labelled `feature` or `fix`.
 - Open items in the repo's decision docs (`docs/decisions/*.md`) that are not built yet.
-- Never built overnight: issues labelled `owner-action` (the owner's job) and `todo` (listed in the morning report
-  only).
+- Never built overnight: issues labelled `owner-action` (the owner's job). A `todo` issue is built only when a
+  feature-doc row or an open decision backs it (owner, 2026-11-08); the rest are listed in the morning report.
+- **Dependencies first (owner, 2026-11-08, blueprint#166).** Preflight also scans the blueprint and regops-suite for
+  open issues whose body carries `needed-by: <this repo>#N` (any label but `owner-action`). They become the first
+  phases and are built in THEIR repo, in dependency order: blueprint, then regops-suite, then this repo. Each touched
+  repo gets its own permit and one push (section 12). The owner never has to remember to start a run there.
 - Other repos: a feature may need a change in another RegOps module repo. Section 7 covers that.
 
 ## 4. Phases and badges
@@ -62,10 +67,11 @@ command.
   layout, states and copy. Workers build to that spec. Opus reviews the result. The owner's reason: Opus's output
   quality here is much higher. Added 2026-11-01.
 - **Sonnet 5.5** only for a hard chunk: when `jev` says so, or the plan marks the chunk hard.
-- **jev** decides. The orchestrator asks `jev` which model and effort a chunk gets. `jev` is reached through the
-  Vercel AI Gateway. If the call fails, times out or answers unclearly, the chunk gets Haiku 5.5 at extra-high.
+- **jev** decides. The orchestrator asks `jev` which model and effort a chunk gets, with `node tools/jev-chunk.mjs`
+  (#242, owner ruling 2026-11-13). `jev` is a decision model: the tool calls the Vercel AI Gateway's decision API
+  (`/typesafe/v1/systemone`), never chat completions, and books each call in `.fleet/jev-chunk-spend.json`. If the call fails, times out or answers unclearly, the chunk gets Haiku 5.5 at extra-high.
   Each `jev` call costs well under $1 and counts against the spend cap (section 9).
-- **jev payload.** The issue, acceptance-test names and the chunk's code may be sent. Customer data never is. The owner
+- **jev payload.** The issue, acceptance-test names and the chunk's code may be sent. Customer data stays out of the run's payload (the owner's 2026-11-13 decision on runtime use of Jev is in `docs/decisions/goal-2026-11-10.md`, Morning interview). The owner
   judged this run's code not sensitive (anyone with a subscription can build similar code), and customer data is not
   part of implementation work anyway. The Hobby plan rejects zero data retention (synced note `jev-ai-gateway-key`),
   so it stays out of the payload. The key is `JEV_AI_GATEWAY_API_KEY`; its value is never printed or written anywhere.
@@ -78,7 +84,9 @@ Each repo has one long-lived orchestrator. When the run needs a change in a repo
 1. If that repo's orchestrator is running, message it through agent communication.
 2. If none is running, start one for that repo.
 3. Either way, the brief is a GitHub issue in that repo, filed by the run's orchestrator. It says what changes, why,
-   and the acceptance tests. The issue is the steering.
+   and the acceptance tests, and its body carries one line `needed-by: <repo>#N` naming the issue that waits for it.
+   That line is what the next run's preflight finds (section 3), so a change that cannot land tonight is still built
+   first next time. The issue is the steering.
 
 The repo's orchestrator implements the change in its own repo (worktree only if section 7 requires it), commits on
 that repo's `beta`, and reports back to the run.
@@ -132,6 +140,10 @@ The run decides and goes on. Nothing waits for the morning except the two hard l
 
 - Per phase, in each touched repo: lint, build and `test:affected`, or the repo's named equivalents. A red result
   goes to the red ladder (section 8).
+- A phase that adds or changes a screen, a list or a data read also runs `npm run check:load` (and `check:bundle`)
+  in a repo that has them, and adds the screen to `load-budget.json`. Over budget is not a test failure: it is a
+  tune loop. Take the next lever of `loading-instruction.md` section 3, re-measure, repeat. After three rounds
+  without reaching the budget, record the measured breakdown and the remaining gap as a `todo` issue and continue.
 - The full suite runs once, at the end, before the push.
 - Authz: a negative test for every caller-supplied id and every admin route. A bug fix's repro must be seen to fail
   before the fix.
@@ -141,7 +153,8 @@ The run decides and goes on. Nothing waits for the morning except the two hard l
 
 After the phases and before the push, start the `app-walk` skill with the Skill tool, under its own standard (the skill is model-invocable for this; regsupply D30). The walk's product questions become
 decisions-document stand-ins, not blocking questions. Gaps the walk can fix without a product decision are fixed in
-one more phase and walked again.
+one more phase and walked again. The walk's part G (speed) runs `npm run check:load`; an over-budget screen is a gap
+of class fix and goes through the same tune loop as in section 10.
 
 ## 12. Push
 
@@ -175,8 +188,8 @@ From `issues-as-features` and `/next`, applied as written:
   Report it as "built (local, unpushed)".
 - **Feature doc:** 🔨 while in progress; ✅ once committed, with `file:line` evidence, in the same commit as the code;
   📋 planned.
-- **Push to `beta`:** the `issue-status.yml` workflow (installed by `blueprint/tools/add-issue-discipline.mjs`) swaps
-  `built` for `on-beta` and closes the `feature` issues. The run does not close issues. `fix` issues stay open until
+- **Push to `beta`:** the pre-push hook's local `tools/issue-status.mjs` run (installed by `blueprint/tools/add-issue-discipline.mjs`;
+  no CI job since 2026-11-17) swaps `built` for `on-beta` and closes the `feature` issues. The run does not close issues. `fix` issues stay open until
   the owner closes them.
 - **Promote to `main`** (owner): `released`.
 - **Repos without `issue-discipline`:** nothing here is automatic. The morning sync moves the labels and says so.
@@ -197,10 +210,15 @@ gives the summary turn and queues the interview the same way. Cloud runs cannot 
 3. **Interview.** Every decision in the decisions document, grouped, at most four per `AskUserQuestion` call. Each
    question carries its background (what was built, the stand-in, what changes if the owner picks differently) and a
    recommended option. The options are: keep the stand-in, change it, revert it, decide later.
+   **Then the blocked work (owner, 2026-11-08, blueprint#163):** list the issues not taken and the open decisions not
+   built, grouped by what blocks them (owner-only, a blueprint or suite component, a gold set, live checks, "later"),
+   and ask for the decisions that would unblock them for the next run. One `AskUserQuestion` per group, recommended
+   option first. An answer that unblocks an item is recorded so the next run's sources pick it up.
 4. **Status sync.** Feature statuses per the evidence (section 14). The issues the workflow will close on the next
    push, and the `fix` issues the owner should close.
 5. **Fleet.** Ask whether to stamp the blueprint changes into the fleet copies now. Stamp only what the owner
-   confirms.
+   confirms. Then list stranded cloud branches: `node tools/fleet-merge-cloud.mjs` (read-only; `--open-prs` opens a PR
+   to beta for each CLEAN one; `--merge --yes` and `--delete-merged --yes` only when the owner says so).
 6. **Owner-action issues.** For items the owner confirms need their own action, file them with
    `node tools/feature-issues.mjs --decisions`.
 7. **Record.** The owner's answers go into the decisions document under a "Morning" heading.
@@ -217,7 +235,7 @@ gives the summary turn and queues the interview the same way. Cloud runs cannot 
 | Other repos | Any RegOps module repo. Commit, do not push. Worktree only when needed. |
 | Backports | Commit to blueprint during the run. Stamp the fleet in the morning. |
 | Models | Opus orchestrator at medium effort (high if needed). Haiku 5.5 workers at extra-high. Sonnet only for hard chunks. |
-| jev | Decides model and effort. Via the Vercel AI Gateway. On failure, Haiku 5.5 at extra-high. Code may be sent; customer data never (owner, 2026-11-01). |
+| jev | Decides model and effort. Via the Vercel AI Gateway. On failure, Haiku 5.5 at extra-high. Code may be sent; customer data stays out of the run (owner, 2026-11-01). |
 | UI/UX and landing content | Planned or defined by Opus 5.5 before any worker builds them (owner, 2026-11-01). |
 | Orchestrators | One per repo. Message it if running, else start one. The brief is a GitHub issue in that repo. |
 | Red phase | Retry twice with the failure output. One attempt by a more capable model. Then stop. |

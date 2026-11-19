@@ -75,7 +75,7 @@ Adapt the braces; everything else stays.
 >    (no screen or no route), **stub** (route renders but does nothing real), **built**, or
 >    **verified** (walked green in this run). Every feature the doc calls built gets a row.
 >    Also list routes that serve no workflow (orphans), and roles/personas (user, org admin,
->    platform admin, guest link, signed out).
+>    platform admin, guest link, signed out - walked with `--user anon`, the simulated `anonymous` identity, which the server answers with no user, org or admin; its 401 on an API call is expected).
 > 2. **Seed synthetic data and files.** Run the dev server with zero credentials (simulated
 >    identities, local file DB, AI heuristic fallbacks). Seed through the app's own API as
 >    simulated users (`x-simulate-user`, `x-simulate-org`), never by writing the DB directly,
@@ -100,7 +100,7 @@ Adapt the braces; everything else stays.
 > 6. **Ask the owner once.** One `AskUserQuestion` batch (max 4 questions, recommended
 >    option first) covering only the **decide** gaps: missing screens, workflow changes,
 >    removals. Then continue without them; an unanswered question is listed in the final
->    message, and its gap stays open. Unattended runs skip this step and report.
+>    message, and its gap stays open. Unattended runs skip this step and report. No one to ask (no `AskUserQuestion`, or a non-interactive routine): follow the `owner-questions` skill rule "No one to ask": safe default, `owner-action` issue with a `decision` block, continue.
 > 7. **Fix and prove.** Fix every **fix** gap, P0 first. One local commit per gap or per
 >    tight cluster, referencing the gap id. After each cluster, re-run the probe on the
 >    touched screens and re-check the item by eye; add a before/after screenshot pair to
@@ -161,7 +161,9 @@ Each item names the standard that owns the detail; read it there, not here.
 **D. Phone**
 16. No horizontal scroll at 390, ever, including with long data (probe: `horizontal-overflow`). A deliberate horizontal scroller is marked `data-walk-scroll-x`.
 17. Primary navigation is a bottom bar on a phone with 3-5 destinations and "More" (`navigation-instruction.md`, `MobileBottomNav`); nothing fixed overlaps it (`--bp-bottom-chrome`; probe: `fixed-overlap`).
-18. Tap targets 44px (probe: `tap-target`); inputs not covered by the keyboard; safe areas respected.
+18. Tap targets: a 44px hit area on touch (probe: `tap-target`, which counts a covered hit area, #226), not a
+    44px drawing; a control redrawn taller on a phone is a finding (#237). Inputs not covered by the keyboard; safe
+    areas respected.
 19. Fewer elements per screen, not the desktop squeezed: set-once controls fold behind the avatar; sheets replace dropdowns and dialogs (`mobile-instruction.md` §1.4).
 
 **E. States and feedback**
@@ -173,6 +175,14 @@ Each item names the standard that owns the detail; read it there, not here.
 **F. House floor**
 24. Both themes legible; contrast; focus visible on every control; reduced motion honoured.
 25. Plain hyphens in copy; no compliance score or readiness %; no coloured left-edge accent line on a card.
+
+**G. Speed** (the numbers and the levers are owned by `loading-instruction.md`; the measurement is `npm run check:load`)
+26. A screen draws its frame at once and never a blank viewport: header, navigation, title and a skeleton in the shape of the content (`loading-instruction.md` section 1, Frame).
+27. First content, Usable, CLS and the longest task are inside the budget table, for a first visit, a return and an in-app navigation, on the desktop and the phone profile (probe: `npm run check:load`; every number over budget is a gap with its measurement).
+28. A long list shows its first screenful first and the rest after it (`RenderMore`); no whole fetched array mapped into the first commit.
+29. Nothing moves after First content: a skeleton holds the height of what replaces it, images carry their size, rows append below and never above what is read.
+30. A screen the person has seen comes back from memory (`useQuery` with `persist`, or `useLastKnownAsync`), and a navigation to one needs no request before it paints.
+31. An over-budget screen is a gap of class **fix**, written with its numbers and the lever of `loading-instruction.md` section 3 that is missing, fixed and re-measured in the same run. A screen that still misses after the levers were applied becomes an issue with the measured breakdown, not a silent pass.
 
 ## Rules for every run
 
